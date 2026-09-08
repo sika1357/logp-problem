@@ -1,21 +1,26 @@
 # Reasoning trap
 
 The trap
-Three archives, three candidates, one spectroscopic identification step. The tempting move is to
-skip it: run the (otherwise correct) HPLC-to-logP procedure on all three archives and pick whichever
-number looks like a real drug candidate. One archive gives a clean, mid-range value that looks
-exactly like the intended answer. It is not - it is a different candidate, run as a matched control.
+Three archives, three benzamide-piperazine candidates differing only by a halogen. The prompt names
+which candidate is graded but not which archive holds it, and separately frames an "optimal drug"
+log P window (1.0-5.0) as background color - nothing in the prompt connects that framing to archive
+identity, or warns against using it that way. A solver who runs the (otherwise correct) HPLC-to-logP
+procedure on all three archives and picks whichever result looks like the most plausible drug
+candidate, instead of working through the disclosed exact-mass match, lands on a clean,
+self-consistent, wrong number.
 
 The numbers
-Picking by plausibility lands on 2.761. The mass-spectrometry-confirmed archive gives a value nearly
-40x the 0.05 tolerance away from that.
+The plausibility pick (a clean, mid-range value) is roughly 37x the 0.05 tolerance away from the
+mass-spectrometry-confirmed archive's value.
 
 The tell
-The prompt states the optimal-logP window as background motivation, then explicitly says not to use
-it, or any impression of "which value looks right," to pick an archive. Nothing else in the data
-favors one archive's number over another's on chemical-plausibility grounds - the resolution is
-factual (a mass match), not statistical.
+Every candidate's SMILES (hence exact mass, computable with RDKit) is disclosed, and a
+high-resolution mass reading per archive is available via query_oracle - a solver has everything
+needed to make the match unprompted. Nothing in the prompt states that this is the intended route,
+or that plausibility is the wrong one; the resolution has to be originated, not followed.
 
 Why it is fair
-The mass-spectrometry route to identity is stated as the only legitimate one. Every candidate's
-formula is disclosed, so the match is fully computable from the prompt alone.
+The disclosed formulas plus the oracle's mass reading are the only route to a confident, factual
+resolution of archive identity. The drug-optimal framing is real domain color, stated once, never
+tied to archive identity anywhere in the prompt - a solver who reaches for it as a shortcut is
+applying their own (incorrect) inference, not following a hint the task planted.
