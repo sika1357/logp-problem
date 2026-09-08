@@ -8,6 +8,7 @@
 
 ```
 [grader: tolerance=[0.05], type=[abs]]
+[grader: require_oracle_calls=[{"mode": "spectroscopy"}, {"mode": "chromatography"}]]
 ```
 
 ## Acceptance criteria

@@ -40,4 +40,4 @@ A high-resolution spectroscopic observation is available for each archive's unkn
 
 ## Your task
 
-Write a Python script (using RDKit and `query_oracle` as needed) that determines `candidate_1`'s computationally inferred log P from the data above. Call `submit_answer` with the result as a single decimal number.
+Write a Python script (using RDKit and `query_oracle` as needed) that determines `candidate_1`'s computationally inferred log P from the data above. Call `submit_answer` with the result as a single decimal number. Your answer is graded as correct if it is within 0.05 (absolute) of the reference value.

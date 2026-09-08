@@ -4,5 +4,6 @@
   "tolerance_type": "abs",
   "unit": "log P (dimensionless)",
   "near_miss": 2.761,
+  "require_oracle_calls": ["spectroscopy", "chromatography"],
   "notes": "computationally inferred log P of candidate_1 (archive_C) from HPLC retention data. near_miss = correct chromatography math applied to archive_A (candidate_2), picked by plausibility (closest to mid-range 'good drug' logP) instead of the spectroscopic identification."
 }
