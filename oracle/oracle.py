@@ -31,7 +31,7 @@ _PROTON_MASS = 1.007276
 _ARCHIVES = {
     "archive_A": {"candidate": "candidate_2", "logP": 2.75, "S": 3.4,
                   "a": 0.850, "b": -0.620, "t0": 1.10},
-    "archive_B": {"candidate": "candidate_3", "logP": 5.05, "S": 7.0,
+    "archive_B": {"candidate": "candidate_3", "logP": 5.05, "S": 6.0,
                   "a": 0.700, "b": -0.500, "t0": 1.00},
     "archive_C": {"candidate": "candidate_1", "logP": 4.62, "S": 5.8,
                   "a": 0.790, "b": -0.550, "t0": 0.95},
