@@ -47,4 +47,4 @@ Write a Python script that:
 3. Loads that archive's chromatography data, discards the unusable entries, and averages replicate injections (including the void-marker's).
 4. Carries out the void-marker correction and the extrapolation procedure described above on the valid calibration compounds, establishes the calibration relationship to their known log P values, and applies it to the unknown to obtain its computationally inferred log P.
 
-Report the computed log P as a single decimal number.
+Call `submit_answer` with the computed log P as a single decimal number.

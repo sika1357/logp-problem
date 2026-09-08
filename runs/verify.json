@@ -1,0 +1,6 @@
+{
+  "gate": "verify",
+  "passed": true,
+  "fingerprint": "217a3669a9b355c2efd908da10e56be1502333bd3690b285e04eb9c608656466",
+  "detail": "inverse: solve() returned 4.617"
+}

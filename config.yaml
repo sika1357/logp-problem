@@ -1,0 +1,7 @@
+domain: computational_chemistry
+sub_domain: spectroscopy
+direction: inverse
+simulator: rdkit
+timeout_minutes: 10
+name: logp-hplc-archive-identity
+trap_archetype: plausibility-over-evidence-identification
