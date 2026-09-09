@@ -1,6 +1,6 @@
-# MANIFEST - file → RLS form field
+# MANIFEST - file -> RLS form field
 
-Open https://studio.mercor.com/, create a task in your domain, paste per the table, then click magic-star → STEM Software Runner for the Taiga eval.
+Open https://studio.mercor.com/, create a task in your domain, paste per the table, then click magic-star -> STEM Software Runner for the Taiga eval.
 
 > **After Taiga runs the task, run `submission-check` on the runs before trusting the result** - don't skip it.
 
@@ -22,16 +22,16 @@ _Direction: **inverse**._
 | `problem.md` | **User Prompt** | text - paste contents |
 | `oracle/oracle.py` | **Oracle File** | file upload (inverse only) |
 | `solution/main.py` | **Verification Code** | file upload |
-| `golden/expected.json → answer` | **Golden Response** | text (bare value the model submits) |
-| `golden/expected.json → [grader:] directive` | **Grading Guidance** | text - paste the [grader: tolerance=[...], type=[...]] line (below) together with the golden answer and grading_guide.md into the ONE Grading Guidance field |
+| `golden/expected.json -> answer` | **Golden Response** | text (bare value the model submits) |
+| `golden/expected.json -> [grader:] directive` | **Grading Guidance** | text - paste the [grader: tolerance=[...], type=[...]] line (below) together with the golden answer and grading_guide.md into the ONE Grading Guidance field |
 | `grader/grading_guide.md` | **Grading Guidance** | text - near-miss table + acceptance prose (same field as above) |
 | `(legacy numeric Tolerance field)` | **Tolerance** | numeric - LEAVE BLANK when using the [grader:] directive; single-value tasks only |
 | `reasoning_trap.md` | **Reasoning Trap** | text |
 | `requirements.txt` | **Required Packages** | text |
-| `config.yaml → domain` | **Domain** | dropdown |
-| `config.yaml → sub_domain` | **Subdomain** | text |
-| `config.yaml → direction` | **Directionality** | Forward / Inverse |
-| `config.yaml → simulator` | **Required Tool** | text |
+| `config.yaml -> domain` | **Domain** | dropdown |
+| `config.yaml -> sub_domain` | **Subdomain** | text |
+| `config.yaml -> direction` | **Directionality** | Forward / Inverse |
+| `config.yaml -> simulator` | **Required Tool** | text |
 | `solution_steps.md` | **Explanation/Context** | text - paste contents: the explanation AND the step-by-step derivation (one file, one field) |
 
 **Not uploaded (skill-local):** `solution/shortcut.py`, `BRIEF.md`, `STATE.md`, `MANIFEST.md`, `runs/*`

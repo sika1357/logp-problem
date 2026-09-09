@@ -12,16 +12,16 @@ archive_C = candidate_1
 archive_A = candidate_2
 archive_B = candidate_3
 Step 4: Use archive_C chromatography and remove invalid rows:
-Organic fraction outside 25–65%
-Retention time ≤ void time
-Step 5: Calculate void time from duplicate void-marker injections: t₀ = 0.9450 min. Average duplicate measurements.
-Step 6: Calculate k′ = tR/t₀ − 1, regress log₁₀(k′) vs. organic fraction, and use the intercept as log₁₀(k′w).
+Organic fraction outside 25--65%
+Retention time <= void time
+Step 5: Calculate void time from duplicate void-marker injections: t0 = 0.9450 min. Average duplicate measurements.
+Step 6: Calculate k' = tR/t0 - 1, regress log10(k') vs. organic fraction, and use the intercept as log10(k'w).
 Calibration:
-log₁₀(k′w) = 0.7900 × log P − 0.5501
-Unknown: log₁₀(k′w) = 3.086
+log10(k'w) = 0.7900 x log P - 0.5501
+Unknown: log10(k'w) = 3.086
 Final answer:
 log P = (3.086 + 0.5501) / 0.7900 = 4.602
 Key result
 Correct archive: archive_C
 Unknown log P: 4.602
-Required tolerance: ±0.05
+Required tolerance: +/-0.05
