@@ -34,9 +34,13 @@ Under fixed column and temperature, a compound's retention weakens smoothly as t
 
 Do not relate a raw retention time directly to log P, and do not fit any single mobile-phase condition's reading directly against log P either. Duplicate injections are technical replicates of the same measurement, not independent data points - average them before doing anything else with them, and do the same for the void-marker's duplicate injections. Use every valid calibration compound the archive provides; do not discard a calibration point because its behavior seems, at a glance, out of line with the others.
 
+## The analytes are weak bases; the mobile phase is buffered
+
+Every candidate in this series carries a basic nitrogen (the piperazine ring), so in solution each sits in an equilibrium between a neutral form and a protonated, positively charged form - the ratio between them fixed by the mobile phase's pH relative to that compound's own pKa. The calibration compounds, by contrast, are neutral, non-ionizable reference standards across this pH range. This distinction is not cosmetic: a charged molecule and its neutral counterpart do not interact with a reversed-phase stationary phase the same way at all - the charged form is much more water-like and correspondingly much less retained. The mobile phase throughout is buffered at pH 7.0, and each archive's unknown has a measurable aqueous pKa reachable through `query_oracle`. The retention an analyte actually shows is the retention of whatever ionization state it occupies at the assay pH - which is not, in general, the retention its neutral form alone would give.
+
 ## Available data
 
-A high-resolution spectroscopic observation is available for each archive's unknown sample, reachable through `query_oracle`, alongside each archive's full chromatography injection log.
+For each archive's unknown sample, reachable through `query_oracle`: a high-resolution spectroscopic (mass) observation, an aqueous pKa (titration) observation, and the archive's full chromatography injection log.
 
 ## Your task
 

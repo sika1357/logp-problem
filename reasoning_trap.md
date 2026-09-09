@@ -1,26 +1,26 @@
 # Reasoning trap
 
-The trap
-Three archives, three benzamide-piperazine candidates differing only by a halogen. The prompt names
-which candidate is graded but not which archive holds it, and separately frames an "optimal drug"
-log P window (1.0-5.0) as background color - nothing in the prompt connects that framing to archive
-identity, or warns against using it that way. A solver who runs the (otherwise correct) HPLC-to-logP
-procedure on all three archives and picks whichever result looks like the most plausible drug
-candidate, instead of working through the disclosed exact-mass match, lands on a clean,
-self-consistent, wrong number.
+The trap (primary: ionization)
+The unknown is a weak base (piperazine, pKa 7.3) and the mobile phase is buffered at pH 7.0, so it is
+~2/3 protonated. The charged form is much less retained, so the unknown's observed retention is
+depressed relative to its neutral form. The calibration compounds are neutral, so the calibration
+line is the neutral relationship. Reading the unknown's depressed log k'_w straight off that line -
+the natural LSS procedure - underestimates its log P. The intended route measures the pKa (titration
+mode) and rescales k'_obs -> k'_obs / f_neutral, f_neutral = 1/(1+10^(pKa-pH)), before applying the
+calibration.
 
 The numbers
-The plausibility pick (a clean, mid-range value) is roughly 37x the 0.05 tolerance away from the
-mass-spectrometry-confirmed archive's value.
+Skipping the rescale lands on 4.003 - about 0.6 log P units, ~12x the 0.05 tolerance, below the
+correct value, and still inside the "good drug" 1.0-5.0 window, so nothing looks wrong.
 
 The tell
-Every candidate's SMILES (hence exact mass, computable with RDKit) is disclosed, and a
-high-resolution mass reading per archive is available via query_oracle - a solver has everything
-needed to make the match unprompted. Nothing in the prompt states that this is the intended route,
-or that plausibility is the wrong one; the resolution has to be originated, not followed.
+Every fact that forces the rescale is disclosed - basic analyte, buffer pH 7.0, neutral calibrants,
+measurable pKa - but the correction is never prescribed and Henderson-Hasselbalch is never named.
+
+Secondary trap
+Which archive is candidate_1 must come from the exact-mass match (RDKit + oracle mass reading), not
+from which archive's number looks most drug-like.
 
 Why it is fair
-The disclosed formulas plus the oracle's mass reading are the only route to a confident, factual
-resolution of archive identity. The drug-optimal framing is real domain color, stated once, never
-tied to archive identity anywhere in the prompt - a solver who reaches for it as a shortcut is
-applying their own (incorrect) inference, not following a hint the task planted.
+Ionization handling is the documented hard part of RP-HPLC log P for basic drugs (OECD 117). Only the
+ruling - at pH below pKa the observed retention is not the neutral retention - must be reasoned.

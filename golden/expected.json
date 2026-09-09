@@ -1,9 +1,13 @@
 {
-  "answer": 4.617,
+  "answer": 4.602,
   "tolerance": 0.05,
   "tolerance_type": "abs",
   "unit": "log P (dimensionless)",
-  "near_miss": 2.761,
-  "require_oracle_calls": ["spectroscopy", "chromatography"],
-  "notes": "computationally inferred log P of candidate_1 (archive_C) from HPLC retention data. near_miss = correct chromatography math applied to archive_A (candidate_2), picked by plausibility (closest to mid-range 'good drug' logP) instead of the spectroscopic identification."
+  "near_miss": 4.003,
+  "require_oracle_calls": [
+    "spectroscopy",
+    "titration",
+    "chromatography"
+  ],
+  "notes": "computationally inferred log P of candidate_1 (archive_C) from HPLC retention data. PRIMARY trap = ionization: the basic unknown is ~2/3 protonated at the assay pH 7.0 (pKa 7.3), so its charged form is under-retained and its observed log k'_w must be corrected back to the neutral species (k'_obs / f_neutral, f_neutral = 1/(1+10^(pKa-pH))) before the neutral calibration line is applied; skipping the correction underestimates log P by ~0.6 units -> near_miss 4.003 (a clean, plausible-looking underestimate). Secondary/weaker near_miss = picking the archive by plausibility instead of the mass match (see solution/shortcut.py naive_solve_plausibility). The correct route: mass-match archive ID (RDKit), pKa via titration, void-time correction, water-limit LSS extrapolation on neutral-corrected k', regress vs known-logP neutral calibrants, invert -> 4.602."
 }

@@ -1,28 +1,48 @@
 """solution/shortcut.py - deliberately naive solver (skill-local, NOT uploaded to RLS).
 
-Implements the tempting failure mode: skip genuine spectroscopic identification and
-instead compute log P for all three archives (using otherwise-correct chromatography),
-then pick whichever archive's result looks most like a plausible drug candidate - i.e.
-closest to the middle of the stated 1.0-5.0 optimal window - and report that as
-`candidate_1`. The chromatography math itself is done correctly, so the wrong answer
-is clean and self-consistent, not obviously broken.
+PRIMARY naive path (`naive_solve`): the ionization-skip failure. It identifies the
+archive correctly by the mass match and does the void-time correction, replicate
+averaging, and water-limit extrapolation correctly - but treats the basic unknown's
+OBSERVED retention as if it were the neutral-species retention, skipping the
+correction for the fraction ionized at the assay pH. Because the charged unknown is
+under-retained, its log P comes out too low (a clean, self-consistent, plausible-looking
+underestimate around 3.8, well inside the "good drug 1.0-5.0" window).
 
-Must FAIL against golden/expected.json.
+REGRESSION LOCK (`naive_solve_plausibility`): the earlier, weaker near-miss - skip the
+mass-match identification entirely and pick the archive whose computed log P looks most
+drug-like. Kept so the door closed in the previous version stays regression-tested.
+
+Both must FAIL against golden/expected.json.
 """
 from __future__ import annotations
 import sys
 from pathlib import Path
 
 import numpy as np
+from rdkit import Chem
+from rdkit.Chem import Descriptors
 
 _PRESCRIBED_MIN, _PRESCRIBED_MAX = 25.0, 65.0
-_CAL_LOGP = {
-    "cal_1": 0.85,
-    "cal_2": 1.62,
-    "cal_3": 2.40,
-    "cal_4": 3.15,
-    "cal_5": 4.05,
+_PROTON_MASS = 1.007276
+_CANDIDATES = {
+    "candidate_1": "O=C(N[C@@H](C)CN1CCN(CC1)C)c1ccc(Cl)cc1",
+    "candidate_2": "O=C(N[C@@H](C)CN1CCN(CC1)C)c1ccc(Br)cc1",
+    "candidate_3": "O=C(N[C@@H](C)CN1CCN(CC1)C)c1ccc(F)cc1",
 }
+_CAL_LOGP = {
+    "cal_1": 0.85, "cal_2": 1.62, "cal_3": 2.40, "cal_4": 3.15, "cal_5": 4.05,
+}
+
+
+def _identify_archive(query_oracle) -> str:
+    target = Descriptors.ExactMolWt(Chem.MolFromSmiles(_CANDIDATES["candidate_1"])) + _PROTON_MASS
+    best_archive, best_diff = None, None
+    for archive in ("archive_A", "archive_B", "archive_C"):
+        mz = query_oracle("spectroscopy", {"archive": archive})["observation"]["mz_M_plus_H"]
+        diff = abs(mz - target)
+        if best_diff is None or diff < best_diff:
+            best_diff, best_archive = diff, archive
+    return best_archive
 
 
 def _process_archive(query_oracle, archive: str) -> float:
@@ -45,7 +65,7 @@ def _process_archive(query_oracle, archive: str) -> float:
             tR = averaged(compound_id, phi_pct)
             if tR is None:
                 continue
-            kprime = tR / t0 - 1
+            kprime = tR / t0 - 1  # NAIVE: no ionization correction on the unknown
             phis.append(phi_pct / 100.0)
             log10k.append(np.log10(kprime))
         slope, intercept = np.polyfit(phis, log10k, 1)
@@ -62,8 +82,14 @@ def _process_archive(query_oracle, archive: str) -> float:
 
 
 def naive_solve(query_oracle):
-    # Skip spectroscopic identification entirely; pick the archive whose
-    # (correctly-computed) log P sits closest to the middle of the "good drug" window.
+    # Correct archive ID + correct chromatography, but SKIP the ionization correction.
+    archive = _identify_archive(query_oracle)
+    return round(float(_process_archive(query_oracle, archive)), 3)
+
+
+def naive_solve_plausibility(query_oracle):
+    # Regression lock: skip the mass-match ID; pick the archive whose (uncorrected)
+    # log P sits closest to the middle of the "good drug" window.
     results = {arch: _process_archive(query_oracle, arch) for arch in ("archive_A", "archive_B", "archive_C")}
     best_archive = min(results, key=lambda a: abs(results[a] - 3.0))
     return round(float(results[best_archive]), 3)

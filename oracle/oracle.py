@@ -1,15 +1,28 @@
 """oracle/oracle.py - HIDDEN system. The model never sees this file.
 
-Backs the logP-from-HPLC inverse task. Two measurement modes:
+Backs the logP-from-HPLC inverse task. Three measurement modes:
   - `spectroscopy(archive, replicate_id?)` - a genuine parametrized instrument reading
     (high-resolution [M+H]+ m/z, varies with which archive you ask about, tiny seeded noise).
   - `chromatography(archive)` - the full raw injection log for one archive (retention
     times across mobile-phase compositions, duplicates, void marker, calibration
     compounds and the unknown; some entries are unusable and NOT flagged).
+  - `titration(archive, replicate_id?)` - a noisy aqueous pKa measurement of that archive's
+    unknown (the analytes are basic, piperazine-bearing; this reports the basic-nitrogen pKa).
+
+The IONIZATION trap: the mobile phase is buffered below the analytes' pKa, so the basic
+unknown is substantially protonated (charged) and its charged form is barely retained on
+the reversed phase. Its OBSERVED retention factor is therefore depressed to f_neutral of the
+neutral-species value, where f_neutral = 1 / (1 + 10^(pKa - pH)). The calibration compounds
+are NEUTRAL (non-ionizable), so their retention is the clean neutral relationship. A solver
+that reads the unknown's depressed log k'_w straight off the neutral calibration line
+UNDER-estimates its log P; the intended route instead recognizes the analyte is ionized at
+the assay pH, measures the pKa, and rescales k'_obs -> k'_obs / f_neutral before applying the
+calibration. Nothing here prescribes that adjustment - the depression is baked into the
+retention data and the pKa/pH are disclosed/measurable; the discipline must be originated.
 
 Nothing here ever names the archive-to-candidate mapping, the void-time correction,
-the extrapolation procedure, or the calibration relationship - those are exactly what
-main.py must work out.
+the extrapolation procedure, the ionization correction, or the calibration relationship -
+those are exactly what main.py must work out.
 """
 from __future__ import annotations
 import hashlib
@@ -38,7 +51,8 @@ _ARCHIVES = {
 }
 
 # Calibration panel: (compound_id, known log P, LSS slope S) - identical set, same true
-# values, run on all three archives/columns.
+# values, run on all three archives/columns. These reference compounds are NEUTRAL
+# (non-ionizable) across the assay pH, so their retention needs no ionization correction.
 _CAL = [
     ("cal_1", 0.85, 2.3),
     ("cal_2", 1.62, 3.1),
@@ -47,8 +61,17 @@ _CAL = [
     ("cal_5", 4.05, 5.5),
 ]
 
+# Ionization: assay mobile phase buffered at pH 7.0; the basic (piperazine) unknowns have
+# per-candidate pKa. f_neutral = 1/(1+10^(pKa-pH)) depresses the unknown's OBSERVED k'.
+_ASSAY_PH = 7.0
+_CANDIDATE_PKA = {"candidate_1": 7.3, "candidate_2": 7.2, "candidate_3": 7.6}
+
 _PHI_GRID = [0.30, 0.40, 0.50, 0.60]
 _PRESCRIBED_MIN, _PRESCRIBED_MAX = 25.0, 65.0  # percent organic, calibration-valid window
+
+
+def _fraction_neutral(pka, pH):
+    return 1.0 / (1.0 + 10.0 ** (pka - pH))
 
 _BUDGET = 40
 _used = 0
@@ -73,12 +96,17 @@ def _build_injection_log(archive: str):
     every import - this IS the single source of truth main.py's data also derives from,
     since main.py calls this same oracle rather than a separate copy)."""
     p = _ARCHIVES[archive]
+    f_neutral_unknown = _fraction_neutral(_CANDIDATE_PKA[p["candidate"]], _ASSAY_PH)
     compounds = [(cid, logP, S) for cid, logP, S in _CAL] + [("unknown", p["logP"], p["S"])]
     rows = []
     rid = 0
     for cid, logP, S in compounds:
+        # The unknown is a basic analyte, partly ionized at the assay pH: its OBSERVED
+        # retention factor is depressed to f_neutral of the neutral value. Calibration
+        # compounds are neutral (f_neutral = 1) and are left untouched.
+        f_ion = f_neutral_unknown if cid == "unknown" else 1.0
         for phi in _PHI_GRID:
-            true_tR = _tR_true(p["t0"], _kprime(p["a"], p["b"], S, logP, phi))
+            true_tR = _tR_true(p["t0"], f_ion * _kprime(p["a"], p["b"], S, logP, phi))
             for rep in (1, 2):
                 r = _rng_for(archive, cid, phi, rep)
                 noisy = true_tR * (1 + r.normal(0, 0.006))
@@ -136,18 +164,27 @@ def _spectroscopy_observation(archive: str, replicate_id):
     return {"mz_M_plus_H": round(float(mz), 4)}
 
 
+def _titration_observation(archive: str, replicate_id):
+    true_pka = _CANDIDATE_PKA[_ARCHIVES[archive]["candidate"]]
+    r = _rng_for("titration", archive, replicate_id if replicate_id is not None else "central")
+    noise = r.normal(0, 0.03) if replicate_id is not None else 0.0
+    return {"pKa": round(float(true_pka + noise), 4)}
+
+
 def handle_query(mode: str, parameters: dict | None = None):
     global _used
     parameters = parameters or {}
 
     if mode == "help":
         return {
-            "description": "An analytical-chemistry data source: a high-resolution mass "
-                            "reading for one archive's unknown, and each archive's full raw "
-                            "HPLC injection log.",
+            "description": "An analytical-chemistry data source for one archive's unknown: a "
+                            "high-resolution mass reading, an aqueous pKa (titration) reading, "
+                            "and the archive's full raw HPLC injection log.",
             "modes": {
                 "spectroscopy": "{archive: 'archive_A'|'archive_B'|'archive_C', replicate_id?: int} "
                                 "-> {observation: {mz_M_plus_H: float}, unit: 'Da'}",
+                "titration": "{archive: 'archive_A'|'archive_B'|'archive_C', replicate_id?: int} "
+                             "-> {observation: {pKa: float}, unit: 'pKa units'}",
                 "chromatography": "{archive: 'archive_A'|'archive_B'|'archive_C'} "
                                   "-> {observation: {injections: [...]}, unit: 'minutes'}",
             },
@@ -170,6 +207,12 @@ def handle_query(mode: str, parameters: dict | None = None):
         if _used > _BUDGET:
             return {"error": "budget exceeded"}
         return {"observation": _spectroscopy_observation(archive, rid), "unit": "Da"}
+
+    if mode == "titration":
+        _used += 1
+        if _used > _BUDGET:
+            return {"error": "budget exceeded"}
+        return {"observation": _titration_observation(archive, rid), "unit": "pKa units"}
 
     if mode == "chromatography":
         _used += 1

@@ -1,96 +1,73 @@
 # Explanation and step-by-step solution
 
 ## What this is
-Three HPLC "archives" (archive_A, archive_B, archive_C), one per physical column, each holding a
-full retention-time characterization of the same five-compound calibration panel plus one unknown
-sample, run at four mobile-phase organic fractions in duplicate, with a duplicated void-marker
-injection. Exactly one archive's unknown is `candidate_1`; the other two are the other two
-candidates from the same benzamide-piperazine series, run as matched controls. The graded quantity
-is `candidate_1`'s computationally inferred octanol/water log P, a single decimal number.
+Three HPLC "archives" (archive_A/B/C), one per column, each holding a full retention-time
+characterization of the same five neutral calibration compounds plus one unknown, run at four
+mobile-phase organic fractions in duplicate with a duplicated void marker. Exactly one archive's
+unknown is `candidate_1` (the graded compound); the other two are matched controls from the same
+benzamide-piperazine series. The analytes are weak bases (piperazine) and the mobile phase is
+buffered at pH 7.0. Graded quantity: `candidate_1`'s inferred octanol/water log P, one decimal.
 
 ## Why this task is fair
-Both decisive facts are fully computable from the prompt: the three candidate SMILES (so a solver
-can compute each candidate's exact mass with RDKit) and the oracle's `spectroscopy` mode (a genuine
-high-resolution [M+H]+ reading per archive). Nothing in the prompt or the oracle states which
-archive is which, or hints that the "optimal drug" framing should be used to decide - that framing
-is explicitly flagged as background motivation only.
+Every fact needed is disclosed or measurable: the candidate SMILES (exact mass via RDKit), the
+oracle's `spectroscopy` (per-archive [M+H]+) and `titration` (per-archive pKa) modes, the buffer pH,
+and the statement that the calibrants are neutral while the analytes are basic and the charged form
+is less retained. Nothing prescribes the ionization correction or names Henderson-Hasselbalch; the
+ruling - that at pH below pKa the observed retention is not the neutral retention - must be reasoned.
 
 # Step-by-step solution
 
-1. **Start from the observations.**
-   Three archives of raw HPLC injection records (`chromatography` oracle mode), each ~50 rows:
-   retention time in minutes, mobile-phase organic percent, injection replicate, compound ID. Five
-   calibration compounds with disclosed log P (0.85 to 4.05) and one unknown per archive. A
-   duplicated void-marker injection per archive. The candidate structures (SMILES) are disclosed in
-   `problem.md`; nothing about which archive holds `candidate_1` is disclosed.
+1. **Identify the graded archive by exact mass (RDKit).**
+   candidate_1 (C15H22ClN3O) [M+H]+ = 296.1524 Da; candidate_2 = 340.1019; candidate_3 = 280.1820 -
+   16-60 Da apart, far outside the ~2 ppm reading noise. The `spectroscopy` reading matches archive_C
+   to candidate_1 (archive_A = candidate_2, archive_B = candidate_3). Unambiguous, but it is only the
+   ID - not the hard part.
 
-2. **Identify which archive is `candidate_1`.**
-   RDKit (`Chem.MolFromSmiles` + `Descriptors.ExactMolWt`) gives the three candidates' exact masses:
-   candidate_1 (C15H22ClN3O) = 295.1451 Da, candidate_2 (C15H22BrN3O) = 339.0946 Da, candidate_3
-   (C15H22FN3O) = 279.1747 Da. Adding the proton mass (1.007276 Da) gives each candidate's [M+H]+.
-   The `spectroscopy` oracle call, made once per archive, returns a real high-resolution mass
-   reading; matching it against candidate_1's computed [M+H]+ (296.1524 Da) identifies archive_C as
-   the true target - archive_A is candidate_2, archive_B is candidate_3. The halogen substitution
-   (Cl/Br/F) makes the three masses ~16-60 Da apart, far outside the ~2 ppm instrument noise, so the
-   match is unambiguous once it is actually made.
+2. **Recognize the unknown is ionized at the assay pH.**
+   The analyte is a piperazine base; `titration` gives its pKa = 7.3; the buffer is pH 7.0. So the
+   fraction neutral is f_neutral = 1/(1 + 10^(7.3-7.0)) = 0.334 - the unknown is ~2/3 protonated.
+   Its charged form is much less retained, so its observed retention factor is depressed to ~1/3 of
+   the neutral value. The calibration compounds are neutral, so their retention needs no such
+   correction.
 
-3. **Do the naive thing: skip the mass match, pick by plausibility.**
-   Running the (otherwise correct) chromatography procedure below on all three archives gives
-   archive_A = 2.761, archive_B ~= 5.2-5.3, archive_C = 4.617. archive_A's value sits closest to the
-   middle of the stated 1.0-5.0 "good drug" window, so a solver reasoning from plausibility picks
-   it - 2.761, which is 1.856 away from the locked value of 4.617, nearly 40x outside the 0.05
-   acceptance tolerance. The chromatography math here is not the problem; the wrong archive is.
+3. **Build the neutral calibration line (void-time correction + water-limit extrapolation).**
+   Average the void-marker duplicates -> t0 = 0.9450 min. Drop the unusable rows (out-of-window phi,
+   sub-void-time; counts differ by archive on purpose). For each neutral calibrant, k' = t_R/t0 - 1,
+   regress log10(k') vs organic fraction phi over the four valid conditions, take the intercept as
+   log10(k'_w) (Snyder-Soczewinski LSS: log10 k'(phi) = log10 k'_w - S*phi). Regress the five
+   intercepts against the five known log P -> calibration line a = 0.790, b = -0.550.
 
-4. **The decisive correction: resolve identity from the mass match, not the number.**
-   Step 2's [M+H]+ comparison is the only legitimate route. A solver who makes the comparison but
-   still defaults to plausibility when the two disagree has not actually used the evidence.
+4. **Correct the unknown to its neutral species, then invert.**
+   The unknown's own extrapolated log10(k'_w) is depressed by the ionization. Rescale its retention
+   factor to the neutral value, k'_neutral = k'_obs / f_neutral, before applying the calibration.
+   Inverting the calibration on the corrected value gives log P = 4.602.
 
-5. **Process the correctly-identified archive (archive_C).**
-   Retention time alone conflates stationary-phase interaction with the column's own transit time,
-   so every retention time is first referenced against the void-marker time t0 (averaged over its 2
-   replicates: 0.9450 min here) to give the retention factor k' = t_R/t0 - 1. Two classes of invalid
-   entries are mixed into the raw log with no flag: one row recorded at 72% organic, outside the
-   disclosed 25-65% prescribed window, and excluded on that basis; no injections in this archive
-   happen to fall below t0 (that failure mode appears in the other two archives, at 2 and 3 excluded
-   rows respectively - the counts differ by archive on purpose). For each valid (compound, mobile-
-   phase) pair, the two duplicate injections are averaged before anything else is computed from them
-   - treating replicates as independent data points would silently deflate the effective noise floor
-   of the fit.
-   For each of the five calibration compounds, log10(k') is regressed against organic fraction phi
-   across the four valid conditions; the intercept is log10(k'_w), the compound's retention
-   extrapolated to a purely aqueous mobile phase - the quantity that is actually linear in log P,
-   per the Snyder/Soczewinski linear-solvent-strength relationship log10(k'(phi)) = log10(k'_w) -
-   S*phi. Regressing these five intercepts against the five known log P values gives the column's
-   calibration line: a = 0.7900, b = -0.5501 (least squares, the cheapest defensible method,
-   consistent with the problem's instruction to use the complete valid calibration set rather than a
-   subset). The same extrapolation applied to the unknown's four valid, duplicate-averaged readings
-   gives log10(k'_w) = 3.0964. Inverting the calibration line, log P = (3.0964 - (-0.5501)) / 0.7900
-   = 4.617.
+5. **The near-miss: skip step 2/4.**
+   A solver that does steps 1 and 3 correctly but reads the unknown's depressed log10(k'_w) straight
+   off the calibration line - the natural LSS procedure - gets log P = 4.003, about 0.6 units (~12x
+   the 0.05 tolerance) too low. It is clean, self-consistent, and still inside the "good drug"
+   1.0-5.0 window, so nothing about it looks wrong.
 
-6. **Report the log P.**
-   4.617, to three decimals, matching the golden value within the 0.05 absolute tolerance.
+6. **Report the log P.** 4.602, within the 0.05 absolute tolerance.
 
 ## The central difficulty
-The task's real trap is not the chromatography arithmetic - it is that all the arithmetic can be
-done correctly on the wrong dataset and still look completely legitimate. The three archives share
-one calibration panel and one measurement protocol, so nothing about a wrongly-chosen archive's
-regression is internally inconsistent: the fit is clean, the residuals are small, and the resulting
-number even falls inside the range the prompt itself calls "optimal." A solver has to resist using
-that plausibility as evidence and instead treat the mass-spectrometry match as the only fact that
-actually settles identity - the same discipline a real analytical chemist needs when a wrong-but-
-reasonable-looking number is one skipped confirmatory step away.
+The chromatography arithmetic is textbook; what stumps is originating the ionization correction. For
+a NEUTRAL analyte the observed water-limit retention is the quantity linear in log P, and the whole
+LSS machinery applies directly. For a BASE at a pH below its pKa, the observed retention is that of a
+mixture dominated by the under-retained cation, so reading it against a neutral calibration line
+silently underestimates log P. This is the real, documented hard part of determining log P for basic
+drug molecules by RP-HPLC - and the prompt gives every fact that forces it (basic analyte, buffer pH,
+neutral calibrants, measurable pKa) without ever naming the fix.
 
 ## Decisive step
-Step 2. A solver who skips the mass-match identification (or makes it but overrides it with
-plausibility reasoning) gets the archive_A route in step 3 and lands on 2.761 instead of 4.617.
+Steps 2 and 4 (the ionization correction). A solver that skips them lands on 4.003 instead of 4.602.
 
 ## Answer
-4.617 (log P, dimensionless), tolerance 0.05 absolute.
+4.602 (log P, dimensionless), tolerance 0.05 absolute.
 
 ## Reference
-Snyder, L.R.; Soczewinski, E. and the general linear-solvent-strength (LSS) model for RP-HPLC
-retention (log k' = log k'_w - S*phi), the basis of the OECD Test Guideline 117 HPLC method for
-determining log P. Column-to-column retention non-interchangeability (used as domain color, not a
-graded field, in the prompt's framing) is grounded in Yi, Y. et al., "A generalizable methodology
-for predicting retention time of small molecule pharmaceutical compounds across reversed-phase HPLC
-columns," J. Chromatogr. A (2025), PMID 39798480 - the Genentech GMCRT multi-column study.
+Snyder/Soczewinski linear-solvent-strength model (log k' = log k'_w - S*phi) and the OECD Test
+Guideline 117 HPLC method for log P. The ionization/pH dependence of RP-HPLC retention for basic
+analytes is the subject of the "Retention of Ionizable Compounds on HPLC" series (Roses, Bosch et
+al., Anal. Chem.) - the correction of observed k' to the neutral species via the fraction ionized at
+the mobile-phase pH.

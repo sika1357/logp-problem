@@ -5,6 +5,14 @@ mass match, then reconstructs that archive's log P from its HPLC injection log:
 filter invalid entries, average replicates, void-time-correct, extrapolate each
 calibration compound's retention behavior to the water limit, regress that
 extrapolated quantity against known log P, and invert for the unknown.
+
+The unknown is a basic analyte and the mobile phase is buffered below its pKa, so
+its charged form is largely unretained and its OBSERVED retention factor is depressed
+to the fraction neutral, f_neutral = 1/(1 + 10^(pKa - pH)). The calibration compounds
+are neutral, so the calibration line is the neutral relationship; the unknown's k' must
+be corrected back to its neutral value (k'_obs / f_neutral) before the calibration is
+applied, or its log P comes out too low. The pKa is measured from the oracle's titration
+mode; the assay pH is the disclosed buffer pH.
 """
 from __future__ import annotations
 import sys
@@ -29,6 +37,11 @@ _CAL_LOGP = {
     "cal_5": 4.05,
 }
 _PRESCRIBED_MIN, _PRESCRIBED_MAX = 25.0, 65.0
+_ASSAY_PH = 7.0  # disclosed mobile-phase buffer pH
+
+
+def _fraction_neutral(pka: float, pH: float) -> float:
+    return 1.0 / (1.0 + 10.0 ** (pka - pH))
 
 
 def _candidate_mz(smiles: str) -> float:
@@ -52,7 +65,7 @@ def _identify_archive(query_oracle) -> str:
     return best_archive
 
 
-def _process_archive(query_oracle, archive: str):
+def _process_archive(query_oracle, archive: str, f_neutral_unknown: float):
     injections = query_oracle("chromatography", {"archive": archive})["observation"]["injections"]
 
     # step 1: drop entries outside the prescribed mobile-phase window (void marker exempt)
@@ -73,17 +86,19 @@ def _process_archive(query_oracle, archive: str):
 
     phi_pcts = sorted({r["mobile_phase_pct_organic"] for r in valid if r["compound_id"] != "void_marker"})
 
-    def extrapolate_to_water(compound_id):
+    def extrapolate_to_water(compound_id, f_neutral=1.0):
         phis, log10k = [], []
         for phi_pct in phi_pcts:
             tR = averaged(compound_id, phi_pct)
             if tR is None:
                 continue
-            kprime = tR / t0 - 1
+            # correct the observed retention factor back to the neutral species
+            # (f_neutral = 1 for the neutral calibration compounds)
+            kprime = (tR / t0 - 1) / f_neutral
             phis.append(phi_pct / 100.0)
             log10k.append(np.log10(kprime))
         slope, intercept = np.polyfit(phis, log10k, 1)
-        return intercept  # log10(k'_w)
+        return intercept  # log10(k'_w) of the neutral species
 
     cal_logP, cal_log10kw = [], []
     for compound_id, logP in _CAL_LOGP.items():
@@ -92,13 +107,17 @@ def _process_archive(query_oracle, archive: str):
 
     a, b = np.polyfit(cal_logP, cal_log10kw, 1)
 
-    unknown_log10kw = extrapolate_to_water("unknown")
+    unknown_log10kw = extrapolate_to_water("unknown", f_neutral=f_neutral_unknown)
     return (unknown_log10kw - b) / a
 
 
 def solve(query_oracle):
     archive = _identify_archive(query_oracle)
-    logP = _process_archive(query_oracle, archive)
+    # the unknown is basic and partly ionized at the assay pH: measure its pKa and
+    # correct its retention for the fraction neutral before applying the calibration
+    pka = query_oracle("titration", {"archive": archive})["observation"]["pKa"]
+    f_neutral_unknown = _fraction_neutral(pka, _ASSAY_PH)
+    logP = _process_archive(query_oracle, archive, f_neutral_unknown)
     return round(float(logP), 3)
 
 
