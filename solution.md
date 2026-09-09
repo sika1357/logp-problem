@@ -1,4 +1,4 @@
-Goal of this: Find log P with retention tim using RP-HPLC/QSRR.
+Goal of this task: Find log P with retention time using RP-HPLC/QSRR.
 
 Candidates: Three benzamide-piperazine compounds are differentiated by Cl, Br, or F. Why HPLC is needed: Computed log P is not reliable. candidate_1's calculated value is ~1.7, while its true value is 4.602.
  
